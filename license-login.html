@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+   <!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -10,35 +10,38 @@
       padding: 2rem;
       max-width: 480px;
       margin: auto;
+      text-align: center;
     }
     h1 { margin-bottom: 1rem; }
-    .card { border: 1px solid #ddd; border-radius: 12px; padding: 1rem; margin: 1rem 0; }
-    input, button { padding: .6rem .8rem; border-radius: 8px; border: 1px solid #ccc; margin-top: .5rem; width: 100%; }
-    button { background: #4CAF50; color: white; cursor: pointer; border: none; }
+    .step { margin: 1rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 12px; }
+    input, button {
+      padding: .7rem 1rem; border-radius: 8px; border: 1px solid #ccc; width: 100%; margin-top: .5rem;
+    }
+    button {
+      background: #4CAF50; color: white; cursor: pointer; border: none; font-size: 1rem;
+    }
     button:hover { background: #45a049; }
     #status { margin-top: 1rem; font-weight: bold; }
-    #gpt-return { display: none; margin-top: 1rem; background: #2196F3; }
+    #gpt-return { display: none; margin-top: 1.5rem; background: #2196F3; font-size: 1.1rem; }
   </style>
 </head>
 <body>
   <h1>GPT 라이선스 인증</h1>
 
-  <div class="card">
+  <!-- Step 1 -->
+  <div class="step">
     <label>라이선스 키</label>
-    <input type="text" id="licenseKey" placeholder="라이선스 키 입력" />
+    <input type="text" id="licenseKey" placeholder="구매 후 받은 키를 입력하세요" />
     <button onclick="checkLicense()">1. 키 확인</button>
   </div>
 
-  <div class="card">
-    <button onclick="loginWithGoogle()">2. Google 로그인</button>
-  </div>
-
-  <div class="card">
-    <button onclick="activateKey()">3. 권한 확인 (키 활성화)</button>
+  <!-- Step 2 -->
+  <div class="step">
+    <button id="loginBtn" onclick="loginWithGoogle()" disabled>2. Google 로그인</button>
   </div>
 
   <p id="status"></p>
-  <button id="gpt-return" onclick="goBackToGPT()">✅ GPT로 돌아가기</button>
+  <button id="gpt-return" onclick="goBackToGPT()">🚀 GPT 실행하기</button>
 
   <script>
     const SUPABASE_URL = "https://kwjxtfyzerwynwqnbpjk.supabase.co";
@@ -53,14 +56,15 @@
       if (savedKey) {
         document.getElementById("licenseKey").value = savedKey;
         currentLicenseKey = savedKey;
-        setStatus("ℹ️ 저장된 키 불러옴. Google 로그인 후 권한 확인을 진행하세요.");
+        document.getElementById("loginBtn").disabled = false;
+        setStatus("ℹ️ 저장된 키 불러옴. 로그인만 진행하세요.");
       }
     });
 
     // 1. 라이선스 키 확인
     async function checkLicense() {
       const key = document.getElementById("licenseKey").value.trim();
-      if (!key) return setStatus("❌ 키를 입력하세요.");
+      if (!key) return setStatus("❌ 키를 입력해주세요.");
       const res = await fetch(`${SUPABASE_URL}/functions/v1/license-precheck`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
@@ -69,10 +73,11 @@
       const data = await res.json();
       if (data.valid) {
         currentLicenseKey = key;
-        localStorage.setItem("licenseKey", key); // ✅ 저장
-        setStatus("✅ 키 확인 완료. 다음 단계로 진행하세요.");
+        localStorage.setItem("licenseKey", key);
+        document.getElementById("loginBtn").disabled = false;
+        setStatus("✅ 키 확인 완료! 이제 로그인하세요.");
       } else {
-        setStatus("❌ 잘못된 키거나 이미 사용된 키입니다.");
+        setStatus("❌ 올바른 라이선스 키가 아닙니다.");
       }
     }
 
@@ -80,54 +85,45 @@
     async function loginWithGoogle() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: {
-          redirectTo: window.location.href
-        }
+        options: { redirectTo: window.location.href }
       });
       if (error) setStatus("❌ 로그인 실패: " + error.message);
-      else setStatus("✅ Google 로그인 진행 중...");
     }
 
-    // 3. 키 활성화
-    async function activateKey() {
-      if (!currentLicenseKey) return setStatus("❌ 먼저 키 확인을 해주세요.");
-
+    // 로그인 후 자동 권한 확인
+    window.addEventListener("load", async () => {
       const session = (await supabase.auth.getSession()).data.session;
-      if (!session) return setStatus("❌ 로그인 세션이 없습니다. Google 로그인 먼저 하세요.");
-
-      const res = await fetch(`${SUPABASE_URL}/functions/v1/activate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "apikey": SUPABASE_ANON_KEY,
-          "Authorization": `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ license_key: currentLicenseKey })
-      });
-      const data = await res.json();
-
-      if (data.ok) {
-        // 활성화 후 entitlement 확인
-        const entRes = await fetch(`${SUPABASE_URL}/functions/v1/entitlement`, {
+      if (session && currentLicenseKey) {
+        // 자동 activate
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/activate`, {
+          method: "POST",
           headers: {
+            "Content-Type": "application/json",
             "apikey": SUPABASE_ANON_KEY,
             "Authorization": `Bearer ${session.access_token}`
-          }
+          },
+          body: JSON.stringify({ license_key: currentLicenseKey })
         });
-        const ent = await entRes.json();
+        const data = await res.json();
 
-        if (ent.valid) {
-          setStatus("✅ 권한 확인 완료! GPT 사용이 가능합니다.");
-          document.getElementById("gpt-return").style.display = "block";
-        } else {
-          setStatus("❌ 권한 확인 실패. 다시 시도해주세요.");
+        if (data.ok) {
+          // entitlement 확인
+          const entRes = await fetch(`${SUPABASE_URL}/functions/v1/entitlement`, {
+            headers: {
+              "apikey": SUPABASE_ANON_KEY,
+              "Authorization": `Bearer ${session.access_token}`
+            }
+          });
+          const ent = await entRes.json();
+          if (ent.valid) {
+            setStatus("✅ 인증이 완료되었습니다! 이제 GPT를 사용할 수 있습니다.");
+            document.getElementById("gpt-return").style.display = "block";
+          }
         }
-      } else {
-        setStatus("❌ 키 활성화 실패: " + (data.reason || "알 수 없는 오류"));
       }
-    }
+    });
 
-    // 4. GPT로 돌아가기 (수동 버튼)
+    // GPT 실행 버튼
     function goBackToGPT() {
       window.location.href = "https://chat.openai.com/g/g-XXXXXX"; // 👉 Custom GPT 링크 넣기
     }
