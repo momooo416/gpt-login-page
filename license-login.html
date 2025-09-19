@@ -22,7 +22,6 @@
     }
     button:hover { background: #45a049; }
     #status { margin-top: 1rem; font-weight: bold; }
-    #gpt-return { display: none; margin-top: 1.5rem; background: #2196F3; font-size: 1.1rem; }
   </style>
 </head>
 <body>
@@ -41,11 +40,10 @@
   </div>
 
   <p id="status"></p>
-  <button id="gpt-return" onclick="goBackToGPT()">✅ 인증 완료! GPT 창으로 돌아가세요</button>
 
   <script>
     const SUPABASE_URL = "https://kwjxtfyzerwynwqnbpjk.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3anh0Znl6ZXJ3eW53cW5icGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxNzUyOTAsImV4cCI6MjA3Mzc1MTI5MH0.ykrO0pTt6dK56pXPmvcnNdWSm894n1tvNPMvE4ZbgwI"; 
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3anh0Znl6ZXJ3eW53cW5icGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxNzUyOTAsImV4cCI6MjA3Mzc1MTI5MH0.ykrO0pTt6dK56pXPmvcnNdWSm894n1tvNPMvE4ZbgwI";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentLicenseKey = "";
@@ -116,18 +114,14 @@
           });
           const ent = await entRes.json();
           if (ent.valid) {
-            setStatus("✅ 인증이 완료되었습니다! 이제 GPT를 사용할 수 있습니다.");
-            document.getElementById("gpt-return").style.display = "block";
+            setStatus("✅ 인증이 완료되었습니다! 곧 창이 닫힙니다...");
+            setTimeout(() => {
+              window.close();
+            }, 1000); // 1초 후 자동 닫힘
           }
         }
       }
     });
-
-    // GPT 실행 버튼 → 팝업 닫기
-    function goBackToGPT() {
-      alert("팝업 창을 닫고 GPT로 돌아가세요."); 
-      window.close();
-    }
 
     function setStatus(msg) {
       document.getElementById("status").innerText = msg;
