@@ -2,88 +2,140 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
-  <title>라이선스 인증 및 로그인</title>
+  <title>요소 제작봇GPT 라이선스 인증</title>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 2rem; max-width: 720px; margin: auto; }
-    h1 { margin: 0 0 1rem; }
-    .card { border: 1px solid #eee; border-radius: 12px; padding: 1rem 1.25rem; margin: 1rem 0; }
-    input[type="text"] { width: 100%; padding: .6rem .8rem; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 1rem; }
-    button { padding: .6rem 1rem; border-radius: 8px; border: none; cursor: pointer; }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-    #status { margin-top: 1rem; font-weight: bold; white-space: pre-line; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      padding: 2rem;
+      max-width: 480px;
+      margin: auto;
+      text-align: center;
+    }
+    h1 { margin-bottom: 1rem; }
+    .step { margin: 1rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 12px; }
+    input, button {
+      padding: .7rem 1rem; border-radius: 8px; border: 1px solid #ccc; width: 100%; margin-top: .5rem;
+    }
+    button {
+      background: #4CAF50; color: white; cursor: pointer; border: none; font-size: 1rem;
+    }
+    button:hover { background: #45a049; }
+    #status { margin-top: 1rem; font-weight: bold; }
   </style>
 </head>
 <body>
-  <h1>🔑 라이선스 인증 및 로그인</h1>
+  <h1>GPT 라이선스 인증</h1>
 
-  <div class="card">
-    <label>라이선스 키 입력:</label>
-    <input type="text" id="licenseKey" placeholder="구매 시 받은 라이선스 키 입력" />
-    <button id="activateBtn">1️⃣ 라이선스 등록</button>
+  <!-- Step 1 -->
+  <div class="step">
+    <label>라이선스 키</label>
+    <input type="text" id="licenseKey" placeholder="구매 후 받은 키를 입력하세요" />
+    <button onclick="checkLicense()">1. 키 확인</button>
   </div>
 
-  <div class="card">
-    <p>이미 라이선스 키를 등록하셨다면, 아래 버튼으로 로그인만 진행하세요.</p>
-    <button id="loginBtn" disabled>2️⃣ Google 로그인</button>
+  <!-- Step 2 -->
+  <div class="step">
+    <button id="loginBtn" onclick="loginWithGoogle()" disabled>
+      2. Google 로그인
+    </button>
+    <p id="loginHint" style="font-size:0.9rem; color:#666;"></p>
   </div>
 
-  <div id="status"></div>
-  <button id="closeBtn">❌ 창 닫기</button>
+  <p id="status"></p>
+  <button id="closeBtn" style="display:none; margin-top:1rem;" onclick="window.close()">창 닫기</button>
+
 
   <script>
     const SUPABASE_URL = "https://kwjxtfyzerwynwqnbpjk.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3anh0Znl6ZXJ3eW53cW5icGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxNzUyOTAsImV4cCI6MjA3Mzc1MTI5MH0.ykrO0pTt6dK56pXPmvcnNdWSm894n1tvNPMvE4ZbgwI";
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-    const licenseInput = document.getElementById("licenseKey");
-    const activateBtn = document.getElementById("activateBtn");
-    const loginBtn = document.getElementById("loginBtn");
-    const closeBtn = document.getElementById("closeBtn");
+    let currentLicenseKey = "";
+    let closeCountdown;
 
-    activateBtn.onclick = async () => {
-      const key = licenseInput.value.trim();
-      if (!key) return setStatus("❌ 라이선스 키를 입력해 주세요.");
+    // 페이지 로드 시 localStorage에서 키 불러오기
+    window.addEventListener("load", () => {
+      const savedKey = localStorage.getItem("licenseKey");
+      if (savedKey) {
+        document.getElementById("licenseKey").value = savedKey;
+        currentLicenseKey = savedKey;
+        document.getElementById("loginBtn").disabled = false;
+        document.getElementById("loginHint").innerText = "이미 키가 등록된 경우, 로그인 버튼을 눌러주세요.";
+        setStatus("ℹ️ 저장된 키 확인완료. 로그인 버튼을 눌러주세요.");
+      }
+    });
 
-      setStatus("⏳ 라이선스 등록 중...");
-      const { data, error } = await fetch(`${SUPABASE_URL}/functions/v1/activate`, {
+    // 1. 라이선스 키 확인
+    async function checkLicense() {
+      const key = document.getElementById("licenseKey").value.trim();
+      if (!key) return setStatus("❌ 키를 입력해주세요.");
+
+      setStatus("🔄 라이선스 확인 중...");
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/license-precheck`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY },
+        headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
         body: JSON.stringify({ license_key: key })
-      }).then(r => r.json());
-
-      if (data?.ok) {
-        setStatus("✅ 라이선스 등록이 완료되었습니다.\n이제 2️⃣ 로그인 버튼을 눌러 주세요.");
-        loginBtn.disabled = false;
+      });
+      const data = await res.json();
+      if (data.valid) {
+        currentLicenseKey = key;
+        localStorage.setItem("licenseKey", key);
+        document.getElementById("loginBtn").disabled = false;
+        document.getElementById("loginHint").innerText = "이제 Google 로그인을 진행하세요.";
+        setStatus("✅ 키 확인 완료!");
       } else {
-        setStatus("❌ 라이선스 등록 실패: " + (error?.message || data?.reason || "알 수 없는 오류"));
+        setStatus("❌ 올바른 라이선스 키가 아닙니다.");
       }
-    };
+    }
 
-    loginBtn.onclick = async () => {
-      setStatus("⏳ Google 로그인 진행 중...");
-      const { data, error } = await supabase.auth.signInWithOAuth({ provider: "google" });
-
-      if (error) {
-        setStatus("❌ 로그인 오류: " + error.message);
-        return;
+    // 2. Google 로그인
+    async function loginWithGoogle() {
+      if (!currentLicenseKey) {
+        return setStatus("❌ 먼저 라이선스 키를 등록하세요.");
       }
+       setStatus("⏳ Google 로그인 진행 중...");      
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.href }
+      });
+      if (error) setStatus("❌ 로그인 실패: " + error.message);
+    }
 
-      // OAuth 리다이렉트 후 세션 감지
-      supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session) {
-          setStatus("⏳ 인증 확인 중...");
+    // 로그인 후 자동 권한 확인
+    window.addEventListener("load", async () => {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (session && currentLicenseKey) {
+         setStatus("⏳ 라이선스 활성화 중...");
+      
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/activate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ license_key: currentLicenseKey })
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          // entitlement 확인
           const entRes = await fetch(`${SUPABASE_URL}/functions/v1/entitlement`, {
             headers: {
-              apikey: SUPABASE_ANON_KEY,
-              Authorization: `Bearer ${session.access_token}`
+              "apikey": SUPABASE_ANON_KEY,
+              "Authorization": `Bearer ${session.access_token}`
             }
           });
           const ent = await entRes.json();
-
           if (ent.valid) {
             let countdown = 10;
-            setStatus(`✅ 인증이 완료되었습니다!\n${countdown}초 후 창이 닫힙니다...`);
+            setStatus(`✅ 인증이 완료되었습니다!
+            👉 GPT 창에서 "시작하기" 같은 아무 메시지를 입력하면
+            자동으로 인증이 갱신되고 바로 사용 가능합니다.
+            \n${countdown}초 후 창이 닫힙니다...`);
+
+          document.getElementById("closeBtn").style.display = "inline-block";
 
             const interval = setInterval(() => {
               countdown--;
@@ -92,7 +144,6 @@
                 window.close();
               } else {
                 setStatus(`✅ 인증이 완료되었습니다!
-                이제 GPT 창으로 돌아가세요.
                 👉 GPT 창에서 "시작하기" 같은 아무 메시지를 입력하면
                 자동으로 인증이 갱신되고 바로 사용 가능합니다.
                 \n${countdown}초 후 창이 닫힙니다...`);
@@ -102,10 +153,8 @@
             setStatus("❌ 라이선스가 확인되지 않았습니다. 다시 시도해 주세요.");
           }
         }
-      });
-    };
-
-    closeBtn.onclick = () => window.close();
+      }
+    });
 
     function setStatus(msg) {
       document.getElementById("status").innerText = msg;
