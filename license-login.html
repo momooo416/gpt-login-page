@@ -20,7 +20,8 @@
     button {
       background: #4CAF50; color: white; cursor: pointer; border: none; font-size: 1rem;
     }
-    button:hover { background: #45a049; }
+    button:disabled { background: #aaa; cursor: not-allowed; }
+    button:hover:enabled { background: #45a049; }
     #status { margin-top: 1rem; font-weight: bold; white-space: pre-line; }
     #closeBtn { display: none; margin-top: 1rem; background: #f44336; }
   </style>
@@ -49,6 +50,7 @@
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentLicenseKey = "";
+    let licenseKeyValid = false; // ✅ 키 검증 성공 여부
 
     // 1. 라이선스 키 확인
     async function checkLicense() {
@@ -62,20 +64,27 @@
       const data = await res.json();
       if (data.valid) {
         currentLicenseKey = key;
+        licenseKeyValid = true;
         localStorage.setItem("licenseKey", key);
+        localStorage.setItem("licenseKeyValid", "true");
         document.getElementById("loginBtn").disabled = false;
         setStatus("✅ 키 확인 완료! 이제 로그인하세요.");
       } else {
+        licenseKeyValid = false;
+        localStorage.setItem("licenseKeyValid", "false");
+        document.getElementById("loginBtn").disabled = true;
         setStatus("❌ 올바른 라이선스 키가 아닙니다.");
       }
     }
 
     // 2. Google 로그인
     async function loginWithGoogle() {
+      if (!licenseKeyValid) {
+        return setStatus("❌ 먼저 올바른 라이선스 키를 확인해주세요.");
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { 
-          // ✅ 깃허브 Pages 경로 고정
           redirectTo: "https://momooo416.github.io/gpt-login-page/license-login.html"
         }
       });
@@ -84,18 +93,21 @@
 
     // 3. 로그인 후 activate 실행
     window.addEventListener("load", async () => {
-      // 항상 localStorage에서 키 복구
+      // localStorage에서 키 복구
       const savedKey = localStorage.getItem("licenseKey");
+      const validFlag = localStorage.getItem("licenseKeyValid") === "true";
       if (savedKey) {
         currentLicenseKey = savedKey;
+        licenseKeyValid = validFlag;
         document.getElementById("licenseKey").value = savedKey;
-        document.getElementById("loginBtn").disabled = false;
+        if (validFlag) document.getElementById("loginBtn").disabled = false;
       }
 
       const { data } = await supabase.auth.getSession();
       const session = data.session;
 
-      if (session && currentLicenseKey) {
+      // ✅ 세션+키+검증 성공 → activate
+      if (session && currentLicenseKey && licenseKeyValid) {
         await activateLicense(session, currentLicenseKey);
       }
     });
@@ -140,7 +152,7 @@
       let count = 10;
       setStatus(`✅ 인증이 완료되었습니다!
 이제 GPT 창으로 돌아가세요.
-👉 GPT 창에서 "시작하기"처럼 아무 메시지를 입력하면 바로 사용 가능합니다.
+👉 GPT 창에서 "시작하기" 같은 아무 메시지를 입력하면 바로 사용 가능합니다.
 
 이 창은 ${count}초 후 자동으로 닫힙니다... (${count})`);
       document.getElementById("closeBtn").style.display = "inline-block";
@@ -150,7 +162,7 @@
         if (count > 0) {
           setStatus(`✅ 인증이 완료되었습니다!
 이제 GPT 창으로 돌아가세요.
-👉 GPT 창에서 "시작하기"처럼 아무 메시지를 입력하면 바로 사용 가능합니다.
+👉 GPT 창에서 "시작하기" 같은 아무 메시지를 입력하면 바로 사용 가능합니다.
 
 이 창은 ${count}초 후 자동으로 닫힙니다... (${count})`);
         } else {
