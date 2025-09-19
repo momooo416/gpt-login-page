@@ -1,4 +1,4 @@
-   <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
   <meta charset="UTF-8" />
@@ -41,11 +41,11 @@
   </div>
 
   <p id="status"></p>
-  <button id="gpt-return" onclick="goBackToGPT()">🚀 GPT 실행하기</button>
+  <button id="gpt-return" onclick="goBackToGPT()">✅ 인증 완료! GPT 창으로 돌아가세요</button>
 
   <script>
     const SUPABASE_URL = "https://kwjxtfyzerwynwqnbpjk.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3anh0Znl6ZXJ3eW53cW5icGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxNzUyOTAsImV4cCI6MjA3Mzc1MTI5MH0.ykrO0pTt6dK56pXPmvcnNdWSm894n1tvNPMvE4ZbgwI"; // Supabase → Project settings → API → anon key
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3anh0Znl6ZXJ3eW53cW5icGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxNzUyOTAsImV4cCI6MjA3Mzc1MTI5MH0.ykrO0pTt6dK56pXPmvcnNdWSm894n1tvNPMvE4ZbgwI"; 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentLicenseKey = "";
@@ -123,9 +123,10 @@
       }
     });
 
-    // GPT 실행 버튼
+    // GPT 실행 버튼 → 팝업 닫기
     function goBackToGPT() {
-      window.location.href = "https://chat.openai.com/aip/g-786b04e89c10ee56151d5baf92aafd285759838c/oauth/callback"; // 👉 Custom GPT 링크 넣기
+      alert("팝업 창을 닫고 GPT로 돌아가세요."); 
+      window.close();
     }
 
     function setStatus(msg) {
