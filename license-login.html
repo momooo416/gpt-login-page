@@ -1,1 +1,131 @@
-<!DOCTYPE html> <html lang="ko"> <head> <meta charset="UTF-8" /> <title>GPT 라이선스 인증</title> <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> <style> body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 2rem; max-width: 480px; margin: auto; text-align: center; } h1 { margin-bottom: 1rem; } .step { margin: 1rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 12px; } input, button { padding: .7rem 1rem; border-radius: 8px; border: 1px solid #ccc; width: 100%; margin-top: .5rem; } button { background: #4CAF50; color: white; cursor: pointer; border: none; font-size: 1rem; } button:hover { background: #45a049; } #status { margin-top: 1rem; font-weight: bold; } </style> </head> <body> <h1>GPT 라이선스 인증</h1> <!-- Step 1 --> <div class="step"> <label>라이선스 키</label> <input type="text" id="licenseKey" placeholder="구매 후 받은 키를 입력하세요" /> <button onclick="checkLicense()">1. 키 확인</button> </div> <!-- Step 2 --> <div class="step"> <button id="loginBtn" onclick="loginWithGoogle()" disabled>2. Google 로그인</button> </div> <p id="status"></p> <script> const SUPABASE_URL = "https://kwjxtfyzerwynwqnbpjk.supabase.co"; const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3anh0Znl6ZXJ3eW53cW5icGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxNzUyOTAsImV4cCI6MjA3Mzc1MTI5MH0.ykrO0pTt6dK56pXPmvcnNdWSm894n1tvNPMvE4ZbgwI"; const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); let currentLicenseKey = ""; // 페이지 로드 시 localStorage에서 키 불러오기 window.addEventListener("load", () => { const savedKey = localStorage.getItem("licenseKey"); if (savedKey) { document.getElementById("licenseKey").value = savedKey; currentLicenseKey = savedKey; document.getElementById("loginBtn").disabled = false; setStatus("ℹ️ 저장된 키 불러옴. 로그인만 진행하세요."); } }); // 1. 라이선스 키 확인 async function checkLicense() { const key = document.getElementById("licenseKey").value.trim(); if (!key) return setStatus("❌ 키를 입력해주세요."); const res = await fetch(${SUPABASE_URL}/functions/v1/license-precheck, { method: "POST", headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY }, body: JSON.stringify({ license_key: key }) }); const data = await res.json(); if (data.valid) { currentLicenseKey = key; localStorage.setItem("licenseKey", key); document.getElementById("loginBtn").disabled = false; setStatus("✅ 키 확인 완료! 이제 로그인하세요."); } else { setStatus("❌ 올바른 라이선스 키가 아닙니다."); } } // 2. Google 로그인 async function loginWithGoogle() { const { error } = await supabase.auth.signInWithOAuth({ provider: "google", options: { redirectTo: window.location.href } }); if (error) setStatus("❌ 로그인 실패: " + error.message); } // 로그인 후 자동 권한 확인 window.addEventListener("load", async () => { const session = (await supabase.auth.getSession()).data.session; if (session && currentLicenseKey) { // 자동 activate const res = await fetch(${SUPABASE_URL}/functions/v1/activate, { method: "POST", headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY, "Authorization": Bearer ${session.access_token} }, body: JSON.stringify({ license_key: currentLicenseKey }) }); const data = await res.json(); if (data.ok) { // entitlement 확인 const entRes = await fetch(${SUPABASE_URL}/functions/v1/entitlement, { headers: { "apikey": SUPABASE_ANON_KEY, "Authorization": Bearer ${session.access_token} } }); const ent = await entRes.json(); if (ent.valid) { setStatus("✅ 인증이 완료되었습니다! 곧 창이 닫힙니다..."); setTimeout(() => { window.close(); }, 1000); // 1초 후 자동 닫힘 } } } }); function setStatus(msg) { document.getElementById("status").innerText = msg; } </script> </body> </html>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>GPT 라이선스 인증</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      padding: 2rem;
+      max-width: 480px;
+      margin: auto;
+      text-align: center;
+    }
+    h1 { margin-bottom: 1rem; }
+    .step { margin: 1rem 0; padding: 1rem; border: 1px solid #ddd; border-radius: 12px; }
+    input, button {
+      padding: .7rem 1rem; border-radius: 8px; border: 1px solid #ccc; width: 100%; margin-top: .5rem;
+    }
+    button {
+      background: #4CAF50; color: white; cursor: pointer; border: none; font-size: 1rem;
+    }
+    button:hover { background: #45a049; }
+    #status { margin-top: 1rem; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>GPT 라이선스 인증</h1>
+
+  <!-- Step 1 -->
+  <div class="step">
+    <label>라이선스 키</label>
+    <input type="text" id="licenseKey" placeholder="구매 후 받은 키를 입력하세요" />
+    <button onclick="checkLicense()">1. 키 확인</button>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step">
+    <button id="loginBtn" onclick="loginWithGoogle()" disabled>2. Google 로그인</button>
+  </div>
+
+  <p id="status"></p>
+
+  <script>
+    const SUPABASE_URL = "https://kwjxtfyzerwynwqnbpjk.supabase.co";
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3anh0Znl6ZXJ3eW53cW5icGprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxNzUyOTAsImV4cCI6MjA3Mzc1MTI5MH0.ykrO0pTt6dK56pXPmvcnNdWSm894n1tvNPMvE4ZbgwI";
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentLicenseKey = "";
+
+    // 페이지 로드 시 localStorage에서 키 불러오기
+    window.addEventListener("load", () => {
+      const savedKey = localStorage.getItem("licenseKey");
+      if (savedKey) {
+        document.getElementById("licenseKey").value = savedKey;
+        currentLicenseKey = savedKey;
+        document.getElementById("loginBtn").disabled = false;
+        setStatus("ℹ️ 저장된 키 불러옴. 로그인만 진행하세요.");
+      }
+    });
+
+    // 1. 라이선스 키 확인
+    async function checkLicense() {
+      const key = document.getElementById("licenseKey").value.trim();
+      if (!key) return setStatus("❌ 키를 입력해주세요.");
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/license-precheck`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
+        body: JSON.stringify({ license_key: key })
+      });
+      const data = await res.json();
+      if (data.valid) {
+        currentLicenseKey = key;
+        localStorage.setItem("licenseKey", key);
+        document.getElementById("loginBtn").disabled = false;
+        setStatus("✅ 키 확인 완료! 이제 로그인하세요.");
+      } else {
+        setStatus("❌ 올바른 라이선스 키가 아닙니다.");
+      }
+    }
+
+    // 2. Google 로그인
+    async function loginWithGoogle() {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: window.location.href }
+      });
+      if (error) setStatus("❌ 로그인 실패: " + error.message);
+    }
+
+    // 로그인 후 자동 권한 확인
+    window.addEventListener("load", async () => {
+      const session = (await supabase.auth.getSession()).data.session;
+      if (session && currentLicenseKey) {
+        // 자동 activate
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/activate`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "apikey": SUPABASE_ANON_KEY,
+            "Authorization": `Bearer ${session.access_token}`
+          },
+          body: JSON.stringify({ license_key: currentLicenseKey })
+        });
+        const data = await res.json();
+
+        if (data.ok) {
+          // entitlement 확인
+          const entRes = await fetch(`${SUPABASE_URL}/functions/v1/entitlement`, {
+            headers: {
+              "apikey": SUPABASE_ANON_KEY,
+              "Authorization": `Bearer ${session.access_token}`
+            }
+          });
+          const ent = await entRes.json();
+          if (ent.valid) {
+            setStatus("✅ 인증이 완료되었습니다! 곧 창이 닫힙니다...");
+            setTimeout(() => {
+              window.close();
+            }, 1000); // 1초 후 자동 닫힘
+          }
+        }
+      }
+    });
+
+    function setStatus(msg) {
+      document.getElementById("status").innerText = msg;
+    }
+  </script>
+</body>
+</html>
