@@ -22,6 +22,8 @@
     }
     button:hover { background: #45a049; }
     #status { margin-top: 1rem; font-weight: bold; }
+    #logoutBtn { background:#e74c3c; margin-top:1rem; display:none; }  /* 🚨 (수정) 로그아웃 버튼 스타일 추가 */
+    #logoutBtn:hover { background:#c0392b; }
   </style>
 </head>
 <body>
@@ -41,7 +43,11 @@
     </button>
     <p id="loginHint" style="font-size:0.9rem; color:#666;"></p>
   </div>
-
+  <!-- Step 3: 로그아웃 버튼 -->
+  <div class="step">
+    <button id="logoutBtn" onclick="logout()">로그아웃</button> <!-- 🚨 (수정) 로그아웃 버튼 추가 -->
+  </div>
+  
   <p id="status"></p>
   <button id="closeBtn" style="display:none; margin-top:1rem;" onclick="window.close()">창 닫기</button>
 
@@ -64,7 +70,14 @@
         document.getElementById("loginHint").innerText = "이미 키가 등록된 경우, 로그인 버튼을 눌러주세요.";
         setStatus("ℹ️ 저장된 키 확인완료. 로그인 버튼을 눌러주세요.");
       }
+
+      // 🚨 (수정) 로그인 세션 확인 → 로그인 중이면 로그아웃 버튼 표시
+      const session = (await supabase.auth.getSession()).data.session;
+      if (session) {
+        document.getElementById("logoutBtn").style.display = "inline-block";
+      }
     });
+
 
     // 1. 라이선스 키 확인
     async function checkLicense() {
@@ -78,14 +91,27 @@
         body: JSON.stringify({ license_key: key })
       });
       const data = await res.json();
-      if (data.valid) {
+
+      // 🚨 (수정) 상태별 안내 멘트 분기
+      if (data.status === "issued") {
+        setStatus("✅ 사용 가능한 라이선스 키입니다.\n👉 Google 로그인을 진행해서 등록을 완료해주세요.");
         currentLicenseKey = key;
         localStorage.setItem("licenseKey", key);
         document.getElementById("loginBtn").disabled = false;
-        document.getElementById("loginHint").innerText = "이제 Google 로그인을 진행하세요.";
-        setStatus("✅ 키 확인 완료!");
+
+      } else if (data.status === "active") {
+        setStatus("✅ 이미 등록된 라이선스 키입니다.\n👉 Google 로그인을 진행해서 계정 확인을 완료해주세요.");
+        currentLicenseKey = key;
+        localStorage.setItem("licenseKey", key);
+        document.getElementById("loginBtn").disabled = false;
+
+      } else if (data.status === "expired") {
+        setStatus("⏰ 만료된 라이선스 키입니다. 새로 구매해 주세요.");
+        document.getElementById("loginBtn").disabled = true;
+
       } else {
-        setStatus("❌ 올바른 라이선스 키가 아닙니다.");
+        setStatus("❌ 올바르지 않은 라이선스 키입니다.");
+        document.getElementById("loginBtn").disabled = true;
       }
     }
 
@@ -100,6 +126,20 @@
         options: { redirectTo: window.location.href }
       });
       if (error) setStatus("❌ 로그인 실패: " + error.message);
+    }
+
+    // 3. 로그아웃 🚨 (수정) 로그아웃 기능 추가
+    async function logout() {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        setStatus("❌ 로그아웃 실패: " + error.message);
+      } else {
+        setStatus("👋 로그아웃 되었습니다. 다른 계정으로 다시 로그인할 수 있습니다.");
+        document.getElementById("loginBtn").disabled = false;
+        document.getElementById("logoutBtn").style.display = "none";
+        localStorage.removeItem("licenseKey"); // 🚨 저장된 키도 제거 (선택사항)
+        currentLicenseKey = "";
+      }
     }
 
     // 로그인 후 자동 권한 확인
@@ -136,6 +176,7 @@
             \n${countdown}초 후 창이 닫힙니다...`);
 
           document.getElementById("closeBtn").style.display = "inline-block";
+          document.getElementById("logoutBtn").style.display = "inline-block"; // 🚨 로그인 완료 후 로그아웃 버튼 표시
 
             const interval = setInterval(() => {
               countdown--;
@@ -151,6 +192,18 @@
             }, 1000);
           } else {
             setStatus("❌ 라이선스가 확인되지 않았습니다. 다시 시도해 주세요.");
+          }
+
+        } else {
+          // 🚨 (수정) activate 응답 reason별 분기 처리
+          if (data.reason === "already_registered_to_other") {
+            setStatus("⚠️ 이 라이선스는 다른 계정에 이미 등록되어 있습니다.");
+          } else if (data.reason === "expired") {
+            setStatus("⏰ 만료된 라이선스입니다. 새로 구매해 주세요.");
+          } else if (data.reason === "not_found") {
+            setStatus("❌ 라이선스 키를 찾을 수 없습니다.");
+          } else {
+            setStatus("❌ 라이선스 활성화 실패. 다시 시도해 주세요.");
           }
         }
       }
