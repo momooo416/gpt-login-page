@@ -75,6 +75,7 @@
       const session = (await supabase.auth.getSession()).data.session;
       if (session) {
         document.getElementById("logoutBtn").style.display = "inline-block";
+        setStatus("✅ 이미 로그인된 상태입니다. 필요하면 로그아웃 후 다른 계정으로 로그인하세요.");
       }
     });
 
@@ -123,7 +124,10 @@
        setStatus("⏳ Google 로그인 진행 중...");      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: window.location.href }
+        options: { 
+          redirectTo: window.location.href,
+          queryParams: { prompt: "select_account" } // 🚨 항상 계정 선택창 뜨도록 설정
+        }
       });
       if (error) setStatus("❌ 로그인 실패: " + error.message);
     }
@@ -145,7 +149,7 @@
     // 로그인 후 자동 권한 확인
     window.addEventListener("load", async () => {
       const session = (await supabase.auth.getSession()).data.session;
-      if (session && currentLicenseKey) {
+      if (session) {
          setStatus("⏳ 라이선스 활성화 중...");
       
         const res = await fetch(`${SUPABASE_URL}/functions/v1/activate`, {
