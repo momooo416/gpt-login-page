@@ -61,7 +61,7 @@
     let closeCountdown;
 
     // 페이지 로드 시 localStorage에서 키 불러오기
-    window.addEventListener("load", () => {
+    window.addEventListener("load", async () => {
       const savedKey = localStorage.getItem("licenseKey");
       if (savedKey) {
         document.getElementById("licenseKey").value = savedKey;
